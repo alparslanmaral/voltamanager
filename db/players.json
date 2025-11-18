@@ -1,0 +1,22 @@
+[
+  { "id": 1, "name": "Ali Yılmaz", "pref": "WG", "attack": 78, "defense": 55, "speed": 84, "physical": 62, "passing": 70 },
+  { "id": 2, "name": "Mehmet Demir", "pref": "ST", "attack": 85, "defense": 42, "speed": 76, "physical": 80, "passing": 60 },
+  { "id": 3, "name": "Ahmet Kaya", "pref": "AM", "attack": 80, "defense": 48, "speed": 72, "physical": 66, "passing": 83 },
+  { "id": 4, "name": "Mustafa Şahin", "pref": "DM", "attack": 58, "defense": 82, "speed": 68, "physical": 74, "passing": 79 },
+  { "id": 5, "name": "Burak Çelik", "pref": "CB", "attack": 46, "defense": 86, "speed": 64, "physical": 82, "passing": 55 },
+  { "id": 6, "name": "Emre Arslan", "pref": "FB", "attack": 54, "defense": 78, "speed": 80, "physical": 70, "passing": 67 },
+  { "id": 7, "name": "Can Güneş", "pref": "WG", "attack": 76, "defense": 50, "speed": 86, "physical": 63, "passing": 68 },
+  { "id": 8, "name": "Hakan Aydın", "pref": "ST", "attack": 83, "defense": 44, "speed": 78, "physical": 77, "passing": 58 },
+  { "id": 9, "name": "Onur Öz", "pref": "AM", "attack": 79, "defense": 50, "speed": 70, "physical": 68, "passing": 85 },
+  { "id": 10, "name": "Serkan Polat", "pref": "DM", "attack": 60, "defense": 80, "speed": 66, "physical": 75, "passing": 78 },
+  { "id": 11, "name": "Uğur Koç", "pref": "CB", "attack": 45, "defense": 88, "speed": 62, "physical": 84, "passing": 54 },
+  { "id": 12, "name": "Tolga Kurt", "pref": "FB", "attack": 56, "defense": 76, "speed": 82, "physical": 71, "passing": 69 },
+  { "id": 13, "name": "Mert Şen", "pref": "WG", "attack": 74, "defense": 52, "speed": 85, "physical": 64, "passing": 72 },
+  { "id": 14, "name": "Furkan Uzun", "pref": "ST", "attack": 82, "defense": 45, "speed": 77, "physical": 79, "passing": 57 },
+  { "id": 15, "name": "Oğuz Efe", "pref": "AM", "attack": 81, "defense": 49, "speed": 71, "physical": 67, "passing": 84 },
+  { "id": 16, "name": "Kerem Yalçın", "pref": "DM", "attack": 59, "defense": 81, "speed": 67, "physical": 73, "passing": 80 },
+  { "id": 17, "name": "İlker Usta", "pref": "CB", "attack": 44, "defense": 87, "speed": 63, "physical": 83, "passing": 53 },
+  { "id": 18, "name": "Berkay Tunç", "pref": "FB", "attack": 55, "defense": 77, "speed": 81, "physical": 72, "passing": 70 },
+  { "id": 19, "name": "Eren Aksoy", "pref": "WG", "attack": 75, "defense": 51, "speed": 84, "physical": 65, "passing": 73 },
+  { "id": 20, "name": "Yasin Kara", "pref": "ST", "attack": 84, "defense": 43, "speed": 76, "physical": 78, "passing": 59 }
+]

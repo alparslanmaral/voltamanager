@@ -1,0 +1,108 @@
+:root{
+  --bg:#0f1115;
+  --panel:#171a21;
+  --muted:#9aa4b2;
+  --text:#e6eaf0;
+  --brand:#34d399;
+  --accent:#60a5fa;
+  --danger:#ef4444;
+  --warn:#f59e0b;
+  --ok:#10b981;
+  --line:#2a2f3a;
+}
+
+*{box-sizing:border-box}
+html,body{height:100%}
+body{
+  margin:0;
+  font-family:system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, "Helvetica Neue", Arial;
+  background:var(--bg);
+  color:var(--text);
+}
+
+.app-header{
+  display:flex; align-items:center; justify-content:space-between;
+  padding:12px 16px; border-bottom:1px solid var(--line); background:var(--panel);
+  position:sticky; top:0; z-index:10;
+}
+.brand{font-weight:700; letter-spacing:0.3px}
+.nav{display:flex; gap:8px}
+.nav-btn{
+  background:transparent; color:var(--text); border:1px solid var(--line); border-radius:8px;
+  padding:8px 12px; cursor:pointer;
+}
+.nav-btn:hover{border-color:var(--accent)}
+.primary{
+  background:var(--brand); color:#06281f; border:none; border-radius:8px; padding:8px 12px; cursor:pointer; font-weight:600;
+}
+.primary:hover{filter:brightness(1.05)}
+
+.pages{padding:16px; max-width:1200px; margin:0 auto}
+.page{display:none}
+.page.active{display:block}
+
+.page-header{display:flex; align-items:center; justify-content:space-between; margin-bottom:12px}
+.formation-select select{
+  background:var(--bg); color:var(--text); border:1px solid var(--line); border-radius:8px; padding:8px 10px;
+}
+
+.tactics-layout{display:grid; grid-template-columns:320px 1fr; gap:16px}
+.pitch-panel .pitch{
+  position:relative; background:#0a4d2a; border:4px solid #0d3a21; border-radius:12px;
+  width:100%; aspect-ratio: 3 / 2; min-height: 420px;
+  background-image:
+    linear-gradient(transparent, transparent),
+    repeating-linear-gradient(90deg, rgba(255,255,255,0.08) 0 1px, transparent 1px 90px),
+    repeating-linear-gradient(0deg, rgba(255,255,255,0.08) 0 1px, transparent 1px 90px);
+}
+.pitch::before, .pitch::after{
+  content:""; position:absolute; left:50%; top:0; bottom:0; width:2px; background:rgba(255,255,255,0.35); transform:translateX(-50%);
+}
+.legend{margin-top:8px; color:var(--muted)}
+.legend .small{font-size:12px; color:#aab2be}
+
+.squad-panel{background:var(--panel); border:1px solid var(--line); border-radius:12px; padding:12px; height:100%}
+.player-list{display:grid; gap:8px}
+.player-card{
+  border:1px solid var(--line); background:rgba(255,255,255,0.02); border-radius:10px; padding:8px;
+  display:flex; align-items:center; justify-content:space-between; gap:8px;
+}
+.player-card .info{display:flex; flex-direction:column}
+.player-card .name{font-weight:600}
+.player-card .pos{font-size:12px; color:var(--muted)}
+.player-card .atts{font-size:12px; color:var(--muted)}
+.player-card .actions{display:flex; gap:6px}
+.btn{
+  background:transparent; color:var(--text); border:1px solid var(--line); border-radius:8px; padding:6px 8px; cursor:pointer; font-size:12px;
+}
+.btn:hover{border-color:var(--accent)}
+.btn-danger{border-color:var(--danger); color:#ffd2d2}
+.btn-ok{border-color:var(--ok); color:#d2ffea}
+
+.dropzone{
+  position:absolute; width:94px; height:94px; border:2px dashed rgba(255,255,255,0.4); border-radius:50%; display:flex;
+  align-items:center; justify-content:center; color:#fff; font-weight:700; text-shadow:0 1px 1px #0008;
+}
+.dropzone.filled{border-style:solid; background:rgba(0,0,0,0.2)}
+.drop-remove{
+  position:absolute; right:-6px; top:-6px; width:22px; height:22px; border-radius:50%; background:var(--danger); color:#fff; font-size:12px; border:none; cursor:pointer; display:none;
+}
+.dropzone.filled .drop-remove{display:block}
+
+.transfer-layout{display:grid; grid-template-columns:1fr 1fr; gap:16px}
+.transfer-column{background:var(--panel); border:1px solid var(--line); border-radius:12px; padding:12px}
+
+.app-footer{
+  padding:16px; color:var(--muted); border-top:1px solid var(--line); margin-top:16px; text-align:center
+}
+
+/* Match */
+.match-topbar{display:flex; align-items:center; justify-content:space-between; margin-bottom:12px}
+.scoreboard{font-size:20px; font-weight:700; display:flex; gap:12px; align-items:center}
+.controls select, .controls button{
+  margin-left:6px;
+}
+.match-layout{display:grid; grid-template-columns:900px 1fr; gap:16px}
+#pitchCanvas{background:#0a4d2a; border:4px solid #0d3a21; border-radius:12px}
+.panel{background:var(--panel); border:1px solid var(--line); border-radius:12px; padding:10px; margin-bottom:10px}
+.log{height:220px; overflow:auto; font-family:ui-monospace, Menlo, Consolas, monospace; font-size:12px; background:rgba(0,0,0,0.2); padding:8px; border-radius:8px}

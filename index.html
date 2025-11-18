@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8" />
+  <title>Volta Mini Menejer</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="stylesheet" href="./styles.css" />
+</head>
+<body>
+  <header class="app-header">
+    <div class="brand">Volta Mini Menejer</div>
+    <nav class="nav">
+      <button class="nav-btn" data-target="#taktik">Taktik</button>
+      <button class="nav-btn" data-target="#transfer">Transfer</button>
+      <button class="nav-btn" data-target="#mac">Maç</button>
+    </nav>
+    <button id="goNextMatch" class="primary">Sonraki Maça Git</button>
+  </header>
+
+  <main class="pages">
+    <!-- TAKTİK -->
+    <section id="taktik" class="page active">
+      <div class="page-header">
+        <h2>Taktik ve Diziliş</h2>
+        <div class="formation-select">
+          <label for="formation">Diziliş:</label>
+          <select id="formation">
+            <!-- 5 kişilik roller (slot listesi) -->
+            <option value="1-2-1">1-2-1 (CB, DM, AM, WG, ST)</option>
+            <option value="2-1-1">2-1-1 (CB, FB, AM, WG, ST)</option>
+            <option value="1-1-2">1-1-2 (CB, DM, WG, WG, ST)</option>
+          </select>
+        </div>
+      </div>
+      <div class="tactics-layout">
+        <aside class="squad-panel">
+          <h3>Kulüp Kadrosu</h3>
+          <div id="squadList" class="player-list"></div>
+          <div class="note">Oyuncuları sağdaki sahadaki pozisyonlara sürükleyip bırak.</div>
+        </aside>
+
+        <section class="pitch-panel">
+          <div class="pitch" id="pitch">
+            <!-- Dropzone'lar JS ile oluşacak -->
+          </div>
+          <div class="legend">
+            <div>WG: Kanat, ST: Forvet, DM: Ön Libero, AM: Ofansif Orta, CB: Stoper, FB: Bek</div>
+            <div class="small">Aynı oyuncuyu birden fazla pozisyona yerleştiremezsin.</div>
+          </div>
+        </section>
+      </div>
+    </section>
+
+    <!-- TRANSFER -->
+    <section id="transfer" class="page">
+      <h2>Transfer</h2>
+      <div class="transfer-layout">
+        <div class="transfer-column">
+          <h3>Kulüp Kadrosu</h3>
+          <div id="clubRoster" class="player-list"></div>
+        </div>
+        <div class="transfer-column">
+          <h3>Serbest Oyuncular</h3>
+          <div id="freeAgents" class="player-list"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- MAÇ -->
+    <section id="mac" class="page">
+      <div class="match-topbar">
+        <div class="scoreboard">
+          <span id="homeName">Biz</span>
+          <span id="score">0 - 0</span>
+          <span id="awayName">Rakip</span>
+        </div>
+        <div class="controls">
+          <label for="speed">Hız: </label>
+          <select id="speed">
+            <option value="1">1x</option>
+            <option value="2" selected>2x</option>
+            <option value="4">4x</option>
+            <option value="8">8x</option>
+          </select>
+          <button id="startMatch" class="primary">Maçı Başlat</button>
+          <button id="pauseMatch">Duraklat</button>
+          <button id="resetMatch">Sıfırla</button>
+        </div>
+      </div>
+      <div class="match-layout">
+        <canvas id="pitchCanvas" width="900" height="540"></canvas>
+        <div class="match-side">
+          <div class="panel">
+            <h3>Maç Bilgisi</h3>
+            <div id="matchMinute">0'</div>
+            <div id="possession">Topa sahip: -</div>
+            <div id="xgInfo">Atak gücü: -</div>
+          </div>
+          <div class="panel">
+            <h3>Kadromuz (Rol - Oyuncu)</h3>
+            <ul id="homeLineupList"></ul>
+          </div>
+          <div class="panel">
+            <h3>Rakip (Rol - Oyuncu)</h3>
+            <ul id="awayLineupList"></ul>
+          </div>
+          <div class="panel">
+            <h3>Maç Olayları</h3>
+            <div id="matchLog" class="log"></div>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="app-footer">
+    <span>5v5 Volta - Basit Menejerlik Prototipi</span>
+  </footer>
+
+  <script src="./js/app.js"></script>
+</body>
+</html>
