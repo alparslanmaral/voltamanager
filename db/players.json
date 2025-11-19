@@ -1,7 +1,7 @@
 [
-  { "id": 1, "name": "Ali Yılmaz", "pref": "WG", "attack": 78, "defense": 55, "speed": 84, "physical": 62, "passing": 70 },
-  { "id": 2, "name": "Mehmet Demir", "pref": "ST", "attack": 85, "defense": 42, "speed": 76, "physical": 80, "passing": 60 },
-  { "id": 3, "name": "Ahmet Kaya", "pref": "AM", "attack": 80, "defense": 48, "speed": 72, "physical": 66, "passing": 83 },
+  { "id": 1, "name": "Arda Güler", "pref": "AM", "attack": 84, "defense": 23, "speed": 67, "physical": 34, "passing": 88 },
+  { "id": 2, "name": "Kerem Aktürkoğlu", "pref": "WG", "attack": 82, "defense": 18, "speed": 79, "physical": 39, "passing": 65 },
+  { "id": 3, "name": "Edin Dzeko", "pref": "ST", "attack": 87, "defense": 29, "speed": 46, "physical": 86, "passing": 75 },
   { "id": 4, "name": "Mustafa Şahin", "pref": "DM", "attack": 58, "defense": 82, "speed": 68, "physical": 74, "passing": 79 },
   { "id": 5, "name": "Burak Çelik", "pref": "CB", "attack": 46, "defense": 86, "speed": 64, "physical": 82, "passing": 55 },
   { "id": 6, "name": "Emre Arslan", "pref": "FB", "attack": 54, "defense": 78, "speed": 80, "physical": 70, "passing": 67 },
