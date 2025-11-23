@@ -1,7 +1,13 @@
-// ===== Volta Mini Menejer - Daha Aktif Oyun, Rastgele Rakip Taktiği, Güçlü Pres =====
+// ===== Volta Mini Menejer - Daha Aktif Oyun, Rastgele Rakip Taktiği, Güçlü Pres (FIXED) =====
+// Optional chaining assignment düzeltmeleri: obj?.prop = ... yerine güvenli atama helper'ları.
 
 // --- LocalStorage Keys ---
 const LS_KEYS = { roster:'vmm_clubRoster', formation:'vmm_formation', lineup:'vmm_lineup', tactic:'vmm_tactic' };
+
+// --- Yardımcı DOM Fonksiyonları (FIX) ---
+const $ = s=>document.querySelector(s);
+function setText(sel, value){ const el=$(sel); if (el) el.textContent=value; }
+function setHTML(sel, value){ const el=$(sel); if (el) el.innerHTML=value; }
 
 // --- Roller & Ağırlıklar ---
 const ROLES = {
@@ -73,10 +79,6 @@ const State = {
   }
 };
 
-// --- DOM helpers ---
-const $ = s=>document.querySelector(s);
-const $$ = s=>document.querySelectorAll(s);
-
 // --- INIT ---
 init();
 async function init(){
@@ -114,7 +116,7 @@ function saveFormation(){ localStorage.setItem(LS_KEYS.formation, State.formatio
 function saveLineup(){ localStorage.setItem(LS_KEYS.lineup, JSON.stringify(State.lineup)); }
 function saveTactic(){ localStorage.setItem(LS_KEYS.tactic, State.tactic); }
 
-// --- Opponent: build and pick random tactic each match ---
+// --- Opponent ---
 function buildOpponent(onInit=false){
   let pool = State.players.filter(p=>!State.clubRoster.has(p.id));
   if (pool.length<5) pool = [...State.players];
@@ -128,7 +130,6 @@ function buildOpponent(onInit=false){
     pool.splice(idx,1);
   }
   State.opponent.lineup=lineup;
-  // Rastgele taktik seç (her maç)
   const keys = Object.keys(TACTICS);
   State.opponent.tactic = keys[Math.floor(Math.random()*keys.length)];
   State.opponent.dynamicTacticChangeTimer = 0;
@@ -140,7 +141,7 @@ function bindUI(){
   document.addEventListener('click', e=>{
     if (e.target.matches('.nav-btn')) setActivePage(e.target.getAttribute('data-target'));
   });
-  $('#goNextMatch').addEventListener('click', ()=>setActivePage('#mac'));
+  $('#goNextMatch')?.addEventListener('click', ()=>setActivePage('#mac'));
 
   const formationSel = $('#formation');
   if (formationSel){
@@ -160,15 +161,15 @@ function bindUI(){
     });
   }
 
-  $('#startMatch').addEventListener('click', startMatch);
-  $('#pauseMatch').addEventListener('click', pauseMatch);
-  $('#resetMatch').addEventListener('click', ()=>resetMatch(false,true));
-  $('#speed').addEventListener('change', e=> State.match.speed = +e.target.value);
-  $('#smoothSim').addEventListener('change', e=> State.match.smooth = e.target.checked);
+  $('#startMatch')?.addEventListener('click', startMatch);
+  $('#pauseMatch')?.addEventListener('click', pauseMatch);
+  $('#resetMatch')?.addEventListener('click', ()=>resetMatch(false,true));
+  $('#speed')?.addEventListener('change', e=> State.match.speed = +e.target.value);
+  $('#smoothSim')?.addEventListener('change', e=> State.match.smooth = e.target.checked);
 }
 
 function setActivePage(sel){
-  $$('.page').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
   const el = document.querySelector(sel);
   if (el) el.classList.add('active');
 }
@@ -236,23 +237,22 @@ function onDropPlayer(e){
   saveLineup(); renderTactics(); updateTacticFitUI();
 }
 
-// --- Taktik uygunluğu UI ---
+// --- Taktik uygunluğu ---
 function updateTacticFitUI(){
   const tac = TACTICS[State.tactic];
   const lineup = getHomeLineupResolved();
   const score = evaluateTacticForLineup(lineup, State.tactic);
   const pct = Math.round(score*100);
-  const pctEl = $('#tacticFitPercent'); const bar = $('#tacticFitBarFill'); const det = $('#tacticFitDetails');
-  if (pctEl) pctEl.textContent = pct? pct+'%' : '-';
-  if (bar) bar.style.width = pct + '%';
-  if (det){
-    const attr = tac.key; let sum=0,cnt=0;
-    for (const s of lineup){ if (s.player){ sum += s.player[attr]; cnt++; } }
-    const avg = cnt? (sum/cnt).toFixed(1) : '-';
-    det.textContent = `Taktik: ${tac.name}
+  setText('#tacticFitPercent', pct? pct+'%' : '-');
+  const bar = $('#tacticFitBarFill'); if (bar) bar.style.width = pct + '%';
+  const attr = tac.key;
+  let sum=0,cnt=0;
+  for (const s of lineup){ if (s.player){ sum += s.player[attr]; cnt++; } }
+  const avg = cnt? (sum/cnt).toFixed(1) : '-';
+  setText('#tacticFitDetails',
+    `Taktik: ${tac.name}
 Ana Özellik: ${attr} (Ortalama: ${avg})
-Tanım: ${tac.desc}`;
-  }
+Tanım: ${tac.desc}`);
 }
 function evaluateTacticForLineup(lineup, tacticKey){
   const tactical = TACTICS[tacticKey]; const attr = tactical.key;
@@ -312,7 +312,7 @@ function getHomeLineupResolved(){
 }
 function ensureLineupReady(){ return FORMATIONS[State.formation].every(s=>State.lineup[s.id]); }
 
-// --- Opponent tactic adapt (opsiyonel) ---
+// --- Opponent dynamic tactic adjust ---
 function maybeOpponentTacticAdjust(){
   if (State.match.minute < 12) return;
   State.opponent.dynamicTacticChangeTimer -= (State.match.logicStep/1000);
@@ -328,7 +328,7 @@ function maybeOpponentTacticAdjust(){
   State.opponent.dynamicTacticChangeTimer = 25 + Math.random()*25;
 }
 
-// --- Dynamic setup (Kickoff) ---
+// --- Dynamic setup ---
 function initDynamicPlayers(){
   State.match.homeDynamic=[]; State.match.awayDynamic=[];
   const homeSlots = FORMATIONS[State.formation];
@@ -362,7 +362,7 @@ function mirrorSlots(slots){ return slots.map((s,i)=>({id:'A'+(i+1), role:s.role
 // --- Match controls ---
 function startMatch(){
   if (!ensureLineupReady()){ alert('5 oyuncuyu sahaya yerleştir.'); return; }
-  buildOpponent(); // her maçta rakip taktik rastgele
+  buildOpponent(); // rastgele rakip taktiği
   resetMatch(true,true);
   State.match.running=true; State.match.paused=false;
   logEvent('Maç başladı (Kickoff bizde)');
@@ -378,16 +378,14 @@ function pauseMatch(){
 function resetMatch(_, full=false){
   State.match.running=false; State.match.paused=false; State.match.minute=0;
   State.match.score={home:0,away:0}; State.match.possession='home';
-  State.match.ball.x = canvas.width*0.30; State.match.ball.y = canvas.height/2;
-  State.match.ball.vx=0; State.match.ball.vy=0; State.match.ball.carrier=null; State.match.ball.target=null; State.match.ball.onArrive=null;
+  Object.assign(State.match.ball,{x:canvas.width*0.30,y:canvas.height/2,vx:0,vy:0,carrier:null,target:null,onArrive:null,travelSteps:0});
   State.match.accum=0; State.match.minuteAccum=0; State.match.interchangeCooldown=0; State.match.counterStateTimer=0;
   if (full){ initDynamicPlayers(); assignKickoff('home'); }
-  $('#score').textContent='0 - 0'; $('#matchMinute').textContent="0'";
-  $('#possession').textContent='Topa sahip: Biz'; $('#xgInfo').textContent='Atak gücü: -'; $('#carrierInfo').textContent='Top taşıyan: -'; $('#matchLog').innerHTML='';
+  setText('#score','0 - 0'); setText('#matchMinute',"0'"); setText('#possession','Topa sahip: Biz');
+  setText('#xgInfo','Atak gücü: -'); setText('#carrierInfo','Top taşıyan: -'); setHTML('#matchLog','');
   renderMatchSidebars(); renderMatchFrame(); updateTacticLabels();
 }
 
-// Genel santra (gol sonrası veya maç başı)
 function assignKickoff(team){
   State.match.possession = team;
   const arr = team==='home'? State.match.homeDynamic : State.match.awayDynamic;
@@ -397,11 +395,6 @@ function assignKickoff(team){
   const y = canvas.height/2;
   State.match.ball.x=x; State.match.ball.y=y; State.match.ball.carrier=null; State.match.ball.target=null;
   if (cand){ State.match.ball.carrier=cand; State.match.ball.x=cand.x; State.match.ball.y=cand.y; updateCarrierInfo(); }
-}
-
-function updateTacticLabels(){
-  const el = $('#tacticInfo');
-  if (el) el.textContent = `Taktikler: ${TACTICS[State.tactic].name} / ${TACTICS[State.opponent.tactic].name}`;
 }
 
 // --- Game loop ---
@@ -418,7 +411,7 @@ function gameLoop(ts){
   }
   const minuteMs = State.match.logicalTickMs / State.match.speed;
   while (State.match.minuteAccum >= minuteMs){
-    State.match.minute++; $('#matchMinute').textContent = `${State.match.minute}'`;
+    State.match.minute++; setText('#matchMinute', `${State.match.minute}'`);
     State.match.minuteAccum -= minuteMs;
     if (State.match.minute>=State.match.maxMinute){
       logEvent(`Maç bitti! Skor: ${State.match.score.home} - ${State.match.score.away}`);
@@ -442,8 +435,8 @@ function logicStep(stepMs){
   const eventProb = 0.55 * (stepMs/1000) * tempoAvg;
   if (Math.random()<eventProb) decideEvents();
 
-  updateTargets();         // taktiğe göre hedef üret
-  updatePressing();        // aktif pres + marking
+  updateTargets();
+  updatePressing();
   antiClump(State.match.homeDynamic);
   antiClump(State.match.awayDynamic);
   movePlayers(stepSec);
@@ -454,72 +447,67 @@ function logicStep(stepMs){
 
 // --- Interchange ---
 function attemptInterchange(){
-  const mut = arr=>{
+  const mutate = arr=>{
     const am = arr.find(p=>p.role==='AM'); const wgs = arr.filter(p=>p.role==='WG');
-    if (am && wgs.length){ const w = wgs[Math.floor(Math.random()*wgs.length)];
-      const tx=am.fx, ty=am.fy; am.fx=w.fx+(Math.random()*24-12); am.fy=w.fy+(Math.random()*24-12);
+    if (am && wgs.length){
+      const w = wgs[Math.floor(Math.random()*wgs.length)];
+      const tx=am.fx, ty=am.fy;
+      am.fx=w.fx+(Math.random()*24-12); am.fy=w.fy+(Math.random()*24-12);
       w.fx=tx+(Math.random()*24-12); w.fy=ty+(Math.random()*24-12);
     }
     const dm = arr.find(p=>p.role==='DM'); const cb = arr.find(p=>p.role==='CB');
     if (dm && cb && Math.random()<0.5){ dm.fx = dm.fx*0.7 + cb.fx*0.3; dm.fy = dm.fy*0.7 + cb.fy*0.3 + (Math.random()*16-8); }
   };
-  mut(State.match.homeDynamic); mut(State.match.awayDynamic);
+  mutate(State.match.homeDynamic); mutate(State.match.awayDynamic);
 }
 
-// --- Pres + Marking ---
+// --- Pressing & Marking ---
 function updatePressing(){
-  const applyTeamPress = (defArr, carrier, tac)=>{
-    // En yakın 3 kişi pres, diğerleri pas kanallarını markeler
-    const sorted = [...defArr].filter(p=>p.playerRef).sort((a,b)=> dist(a.x,a.y, carrier.x,carrier.y)-dist(b.x,b.y, carrier.x,carrier.y));
-    const pressers = sorted.slice(0,3);
-    for (const d of pressers){
-      const maxDist = 160 + tac.pressIntensity*140;
-      if (dist(d.x,d.y, carrier.x,carrier.y) < maxDist){
-        d.tx = carrier.x + (Math.random()*18 -9);
-        d.ty = carrier.y + (Math.random()*18 -9);
-        if (d.ai) d.ai.mark = null;
-      }
-    }
-    // Marking: pas açılarını kes
-    const others = sorted.slice(3);
-    for (const m of others){
-      if (!m.ai) m.ai = {};
-      // basit: taşıyıcı ile kale arasına gir
-      const goalX = State.match.homeDynamic.includes(carrier)? canvas.width-8 : 8;
-      const goalY = canvas.height/2;
-      const mx = (carrier.x*0.65 + goalX*0.35) + (Math.random()*20 -10);
-      const my = (carrier.y*0.65 + goalY*0.35) + (Math.random()*20 -10);
-      m.tx = clamp(mx, 20, canvas.width-20);
-      m.ty = clamp(my, 20, canvas.height-20);
-      m.ai.mark = {x:m.tx, y:m.ty};
-    }
-  };
-
   const carrier = State.match.ball.carrier; if (!carrier) return;
   const carrierTeamHome = State.match.homeDynamic.includes(carrier);
-  const atkTac = carrierTeamHome? TACTICS[State.tactic] : TACTICS[State.opponent.tactic];
   const defTac = carrierTeamHome? TACTICS[State.opponent.tactic] : TACTICS[State.tactic];
   if (defTac.pressIntensity < 0.25) return;
-
   const defArr = carrierTeamHome? State.match.awayDynamic : State.match.homeDynamic;
-  applyTeamPress(defArr, carrier, defTac);
+
+  const sorted = [...defArr].filter(p=>p.playerRef)
+    .sort((a,b)=> dist(a.x,a.y, carrier.x,carrier.y)-dist(b.x,b.y, carrier.x,carrier.y));
+  const pressers = sorted.slice(0,3);
+  for (const d of pressers){
+    const maxDist = 160 + defTac.pressIntensity*140;
+    if (dist(d.x,d.y, carrier.x,carrier.y) < maxDist){
+      d.tx = carrier.x + (Math.random()*18 -9);
+      d.ty = carrier.y + (Math.random()*18 -9);
+      if (d.ai) d.ai.mark=null;
+    }
+  }
+  const others = sorted.slice(3);
+  for (const m of others){
+    if (!m.ai) m.ai={};
+    const goalX = State.match.homeDynamic.includes(carrier)? canvas.width-8 : 8;
+    const goalY = canvas.height/2;
+    const mx = (carrier.x*0.65 + goalX*0.35) + (Math.random()*20 -10);
+    const my = (carrier.y*0.65 + goalY*0.35) + (Math.random()*20 -10);
+    m.tx = clamp(mx,20,canvas.width-20);
+    m.ty = clamp(my,20,canvas.height-20);
+    m.ai.mark={x:m.tx,y:m.ty};
+  }
 }
 
 // --- Events ---
 function decideEvents(){
   const attacker = State.match.possession;
-  const homeTac = TACTICS[State.tactic]; const awayTac = TACTICS[State.opponent.tactic];
-  const tac = attacker==='home'? homeTac : awayTac; const oppTac = attacker==='home'? awayTac : homeTac;
-  $('#possession')?.textContent = `Topa sahip: ${attacker==='home'?'Biz':'Rakip'}`;
-
+  setText('#possession', `Topa sahip: ${attacker==='home'?'Biz':'Rakip'}`);
   if (!State.match.ball.carrier) assignLooseBallCarrier();
   if (!State.match.ball.carrier) return;
 
+  const homeTac = TACTICS[State.tactic]; const awayTac = TACTICS[State.opponent.tactic];
+  const tac = attacker==='home'? homeTac : awayTac; const oppTac = attacker==='home'? awayTac : homeTac;
+
   const {atk,def} = computeTeamsPower(attacker);
-  const diff = atk - def; const minuteFactor = State.match.minute/State.match.maxMinute;
+  const diff = atk - def;
+  const minuteFactor = State.match.minute/State.match.maxMinute;
 
   let shotProb = clamp(0.09 + diff*0.0016 + minuteFactor*0.22 + tac.riskFactor*0.15, 0.05, 0.55);
-  // Bus şekli: rakibin şut hevesini azalt
   shotProb *= (1 - oppTac.busFactor*0.35);
   let passProb = clamp(tac.passBias*0.65 + (1 - shotProb)*0.45, 0.28, 0.8);
 
@@ -529,7 +517,7 @@ function decideEvents(){
   if (attacker==='home' && State.match.counterStateTimer>0 && homeTac===TACTICS['counter']) shotProb=clamp(shotProb+0.12, 0.05, 0.65);
   if (attacker==='away' && State.match.counterStateTimer>0 && awayTac===TACTICS['counter']) shotProb=clamp(shotProb+0.12, 0.05, 0.65);
 
-  let action='hold'; const r = Math.random();
+  let action='hold'; const r=Math.random();
   if (r < shotProb) action='shot';
   else if (r < shotProb + passProb) action='pass';
   else {
@@ -538,7 +526,7 @@ function decideEvents(){
     else if (tac.counterTrigger>0.75 && Math.random()<0.55) action='space_pass';
   }
 
-  $('#xgInfo')?.textContent = `Atak farkı: ${diff.toFixed(1)} · Baskı:${pressure?'Evet':'Hayır'}`;
+  setText('#xgInfo', `Atak farkı: ${diff.toFixed(1)} · Baskı:${pressure?'Evet':'Hayır'}`);
   updateTacticLabels();
 
   if (action==='shot') attemptShot(attacker, diff);
@@ -564,7 +552,6 @@ function assignLooseBallCarrier(){
     State.match.ball.carrier=chosen;
     State.match.possession = State.match.homeDynamic.includes(chosen)? 'home':'away';
     updateCarrierInfo();
-    // Kontra tetik
     const tac = State.match.possession==='home'? TACTICS[State.tactic] : TACTICS[State.opponent.tactic];
     if (tac.counterTrigger>0.75){
       const progress = State.match.possession==='home'? chosen.x/canvas.width : (canvas.width-chosen.x)/canvas.width;
@@ -573,14 +560,14 @@ function assignLooseBallCarrier(){
   }
 }
 
-// --- Passing family ---
+// --- Passing family (smart/cross/through/space) ---
 function attemptSmartPass(team){
   const arr = team==='home'? State.match.homeDynamic : State.match.awayDynamic;
   const opp = team==='home'? State.match.awayDynamic : State.match.homeDynamic;
   const carrier = State.match.ball.carrier; if (!carrier) return;
   const candidates = arr.filter(p=>p!==carrier && p.playerRef); if (!candidates.length) return;
-
   const goalX = team==='home'? canvas.width : 0; const goalY = canvas.height/2;
+
   const scored = candidates.map(p=>{
     const dC = dist(carrier.x,carrier.y,p.x,p.y);
     const progress = team==='home'? (p.x/canvas.width) : ((canvas.width-p.x)/canvas.width);
@@ -606,9 +593,7 @@ function attemptSmartPass(team){
     const passSpeed = Math.min(30, 18 + dPass/35);
     State.match.ball.target={x:target.x,y:target.y,type:'pass',speed:passSpeed};
     State.match.ball.travelSteps = Math.ceil(dPass/passSpeed)+5;
-    State.match.ball.onArrive=()=>{ State.match.ball.carrier=target; State.match.possession=team; updateCarrierInfo(); };
-    // Hedef oyuncuya koşu tetik: devam koşusu
-    if (target.ai) target.ai.runTimer = 0.8 + Math.random()*0.8;
+    State.match.ball.onArrive=()=>{ State.match.ball.carrier=target; State.match.possession=team; updateCarrierInfo(); if (target.ai) target.ai.runTimer=0.8+Math.random()*0.8; };
   }
 }
 
@@ -682,14 +667,13 @@ function attemptSpacePass(team){
   };
 }
 
-// Bitirici: şut/gol vs orta sonrası reset ve santra
+// --- Attack finish / kickoff after goal ---
 function finishAttack(team, goal, label){
   if (goal){
     if (team==='home') State.match.score.home++; else State.match.score.away++;
-    $('#score').textContent = `${State.match.score.home} - ${State.match.score.away}`;
+    setText('#score', `${State.match.score.home} - ${State.match.score.away}`);
     logEvent(`${label} gol!`);
   } else { logEvent(`${label} sonuçsuz.`); }
-  // Gol sonrası santra GOLÜ YİYEN tarafından
   const nextTeam = team==='home' ? 'away' : 'home';
   State.match.ball.target=null; State.match.ball.carrier=null;
   assignKickoff(nextTeam);
@@ -754,11 +738,10 @@ function applyTargets(arr, attacking, tactic){
   for (const p of arr){
     if (!p.ai) p.ai = {targetTTL:0, runTimer:0, mark:null};
     p.ai.targetTTL -= State.match.logicStep/1000;
-    if (p.ai.targetTTL > 0){ continue; } // hedefi bir süre koru (daha akıcı hareket)
+    if (p.ai.targetTTL > 0) continue;
 
     const anchorX=p.fx; const anchorY=p.fy; const baseRoam = p.roamRadius||80;
     const roamRadius = baseRoam*(1 + tactic.wingBias*0.2 + counterBoost*0.35);
-
     let advance = (tactic.lineHeight*120);
     if (attacking){
       advance += (p.role==='ST'?42: p.role==='AM'?28: p.role==='WG'?24: p.role==='DM'?12: p.role==='FB'?10: 0);
@@ -766,13 +749,12 @@ function applyTargets(arr, attacking, tactic){
       advance -= (p.role==='CB'?30: p.role==='FB'?22: p.role==='DM'?18: 10);
     }
 
-    // Off-ball koşu: kısa süreli ileri hedef
     if (p.ai.runTimer>0){
       p.ai.runTimer -= State.match.logicStep/1000;
       const dir = State.match.homeDynamic.includes(p)? 1 : -1;
       p.tx = clamp(p.x + dir*(30 + Math.random()*30), 20, canvas.width-20);
       p.ty = clamp(p.y + (Math.random()*20 -10), 20, canvas.height-20);
-      p.ai.targetTTL = 0.2 + Math.random()*0.3;
+      p.ai.targetTTL = 0.25 + Math.random()*0.25;
       continue;
     }
 
@@ -792,7 +774,7 @@ function applyTargets(arr, attacking, tactic){
       targetY = clamp(p.y + (Math.random()*22 -11), 20, canvas.height-20);
     }
     p.tx=targetX; p.ty=targetY;
-    p.ai.targetTTL = 0.35 + Math.random()*0.5; // 0.35-0.85 sn hedefi koru
+    p.ai.targetTTL = 0.35 + Math.random()*0.5;
   }
 }
 
@@ -812,14 +794,17 @@ function movePlayers(stepSec){
   for (const p of all){
     const dx=p.tx-p.x, dy=p.ty-p.y; const d=Math.hypot(dx,dy);
     if (d>0.2){
-      const staminaFactor = 0.5 + (p.stamina||100)/100*0.5; // 0.5..1
-      const base = 120 + (p.speedBonus||0)*70; // px/s
-      const v = base * staminaFactor; // px/s
+      const staminaFactor = 0.5 + (p.stamina||100)/100*0.5;
+      const base = 120 + (p.speedBonus||0)*70;
+      const v = base * staminaFactor;
       const move = Math.min(v*stepSec, d);
       p.x += (dx/d)*move; p.y += (dy/d)*move;
     }
   }
-  if (State.match.ball.carrier && !State.match.ball.target){ State.match.ball.x=State.match.ball.carrier.x; State.match.ball.y=State.match.ball.carrier.y; }
+  if (State.match.ball.carrier && !State.match.ball.target){
+    State.match.ball.x=State.match.ball.carrier.x;
+    State.match.ball.y=State.match.ball.carrier.y;
+  }
 }
 
 function updateBall(stepSec){
@@ -827,16 +812,16 @@ function updateBall(stepSec){
   if (!ball.target) return;
   const dx=ball.target.x-ball.x, dy=ball.target.y-ball.y; const d=Math.hypot(dx,dy);
   if (d>0.1){
-    let speed = 24;
+    let speed=24;
     switch(ball.target.type){ case 'shot': speed=36; break; case 'pass': speed=ball.target.speed||26; break; case 'cross': speed=28; break; case 'through': speed=30; break; case 'space': speed=32; break; }
-    const mv = Math.min(speed*stepSec, d);
+    const mv=Math.min(speed*stepSec, d);
     ball.x += (dx/d)*mv; ball.y += (dy/d)*mv;
     ball.travelSteps--;
     if (ball.travelSteps<=0 || d<12){ const cb=ball.onArrive; ball.target=null; ball.onArrive=null; if (cb) cb(); }
   } else { const cb=ball.onArrive; ball.target=null; ball.onArrive=null; if (cb) cb(); }
 }
 
-// --- Tackles / Steals ---
+// --- Tackles ---
 function resolveTackles(){
   const carrier=State.match.ball.carrier; if (!carrier) return;
   const team = State.match.homeDynamic.includes(carrier)? 'home':'away';
@@ -868,13 +853,21 @@ function staminaTick(stepSec){
   const homeTac = TACTICS[State.tactic]; const awayTac = TACTICS[State.opponent.tactic];
   applyStaminaDecay(State.match.homeDynamic, homeTac, stepSec);
   applyStaminaDecay(State.match.awayDynamic, awayTac, stepSec);
-  if (State.match.counterStateTimer>0){ State.match.counterStateTimer -= stepSec; const burst = 3*stepSec; for (const p of [...State.match.homeDynamic, ...State.match.awayDynamic]) p.stamina = Math.max(0, (p.stamina||100) - burst*10); }
+  if (State.match.counterStateTimer>0){
+    State.match.counterStateTimer -= stepSec;
+    const burst = 3*stepSec;
+    for (const p of [...State.match.homeDynamic, ...State.match.awayDynamic])
+      p.stamina = Math.max(0, (p.stamina||100) - burst*10);
+  }
 }
 function applyStaminaDecay(arr, tactic, stepSec){
   for (const p of arr){
     let dec = State.match.staminaDecayBase * tactic.tempoFactor;
     dec += tactic.pressIntensity * 0.18;
-    if (State.match.ball.carrier && !arr.includes(State.match.ball.carrier)){ const d = dist(p.x,p.y, State.match.ball.x,State.match.ball.y); if (d<130) dec += 0.06; }
+    if (State.match.ball.carrier && !arr.includes(State.match.ball.carrier)){
+      const d = dist(p.x,p.y, State.match.ball.x,State.match.ball.y);
+      if (d<130) dec += 0.06;
+    }
     p.stamina = Math.max(0, (p.stamina||100) - dec*stepSec*100);
   }
 }
@@ -891,15 +884,20 @@ function pointLineDistance(px,py,x1,y1,x2,y2){
 }
 
 // --- Log / UI ---
-function logEvent(t){ const log=$('#matchLog'); if (!log) return; const line=document.createElement('div'); line.textContent=`${State.match.minute}' ${t}`; log.prepend(line); }
+function logEvent(t){
+  const log=$('#matchLog'); if (!log) return;
+  const line=document.createElement('div'); line.textContent=`${State.match.minute}' ${t}`; log.prepend(line);
+}
 function renderMatchSidebars(){
-  $('#homeName')?.textContent='Biz'; $('#awayName')?.textContent=State.opponent.name;
-  const my=getHomeLineupResolved(); const their=State.opponent.lineup; const ulH=$('#homeLineupList'), ulA=$('#awayLineupList');
-  if (!ulH || !ulA) return; ulH.innerHTML=''; ulA.innerHTML='';
+  setText('#homeName','Biz'); setText('#awayName',State.opponent.name);
+  const my=getHomeLineupResolved(); const their=State.opponent.lineup;
+  const ulH=$('#homeLineupList'), ulA=$('#awayLineupList'); if (!ulH||!ulA) return;
+  ulH.innerHTML=''; ulA.innerHTML='';
   for (const r of my){ const li=document.createElement('li'); li.textContent=`${r.role} - ${r.player? r.player.name : '—'}`; ulH.appendChild(li); }
   for (const r of their){ const li=document.createElement('li'); li.textContent=`${r.role} - ${r.player? r.player.name : '—'}`; ulA.appendChild(li); }
 }
-function updateCarrierInfo(){ $('#carrierInfo')?.textContent = 'Top taşıyan: ' + (State.match.ball.carrier?.playerRef?.name || '-'); }
+function updateCarrierInfo(){ setText('#carrierInfo', 'Top taşıyan: ' + (State.match.ball.carrier?.playerRef?.name || '-')); }
+function updateTacticLabels(){ setText('#tacticInfo', `Taktikler: ${TACTICS[State.tactic].name} / ${TACTICS[State.opponent.tactic].name}`); }
 function updateDebug(){
   const dbg=$('#debugInfo'); if (!dbg) return;
   const b=State.match.ball;
@@ -933,11 +931,13 @@ function drawPlayer(pl){
   const color = isHome? '#60a5fa' : '#f87171';
   ctx.fillStyle=color; ctx.beginPath(); ctx.arc(x,y,14,0,Math.PI*2); ctx.fill();
   if (State.match.ball.carrier===pl){ ctx.strokeStyle='#fff'; ctx.lineWidth=2; ctx.beginPath(); ctx.arc(x,y,18,0,Math.PI*2); ctx.stroke(); }
-  // stamina sector
   if (playerRef){
     const frac = Math.max(0,(pl.stamina||100)/100);
     ctx.fillStyle='rgba(0,0,0,0.45)'; ctx.beginPath(); ctx.arc(x,y,12,0,Math.PI*2); ctx.fill();
-    ctx.fillStyle='rgba(34,211,138,0.75)'; ctx.beginPath(); ctx.moveTo(x,y); ctx.arc(x,y,12,-Math.PI/2, -Math.PI/2 + frac*Math.PI*2, false); ctx.lineTo(x,y); ctx.fill();
+    ctx.fillStyle='rgba(34,211,138,0.75)';
+    ctx.beginPath(); ctx.moveTo(x,y);
+    ctx.arc(x,y,12,-Math.PI/2, -Math.PI/2 + frac*Math.PI*2, false);
+    ctx.lineTo(x,y); ctx.fill();
   }
   ctx.fillStyle='#000'; ctx.beginPath(); ctx.arc(x,y,10,0,Math.PI*2); ctx.fill();
   ctx.fillStyle='#fff'; ctx.font='10px sans-serif'; ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillText(role,x,y);
