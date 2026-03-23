@@ -1,4 +1,4 @@
-// ===== Volta Mini Menejer - Anti-Top Yığılması / Akıllı Chase / Genişletilmiş Taktiksel AI =====
+// ===== Volta Mini Menejer - Anti-Top Yığılması / Ak��llı Chase / Genişletilmiş Taktiksel AI =====
 // Bu sürüm: oyuncuların hepsi topa koşmuyor; sınırlı chaser seçimi, taktiksel şekil, separation, support üçgenleri,
 // top çevresi sıkışmasını azaltan kaçış vektörleri, stamina bazlı chase maliyeti.
 
@@ -468,6 +468,7 @@ function logicStep(stepMs){
   // 5) Separation & spacing
   applySeparation(State.match.homeDynamic);
   applySeparation(State.match.awayDynamic);
+  applyEnemySeparation();
   avoidBallCrowding();
 
   // 6) Movement & ball
@@ -504,38 +505,37 @@ function attemptInterchange(){
 function selectBallChasers(){
   const ball=State.match.ball;
   const carrier=ball.carrier;
-  // reset chase flags
   ['homeDynamic','awayDynamic'].forEach(group=>{
     for(const p of State.match[group]){
       p.ai.chase=false; p.ai.support=false;
     }
   });
+
   if(carrier){
-    // Takım topu taşıyor -> rakip chaser seçecek
     const carrierTeamHome = State.match.homeDynamic.includes(carrier);
     const defArr = carrierTeamHome? State.match.awayDynamic : State.match.homeDynamic;
     const tac = carrierTeamHome? TACTICS[State.opponent.tactic] : TACTICS[State.tactic];
     const maxPrimary = (tac.pressIntensity>0.8)? 2+(State.match.counterStateTimer>0?1:0) : 2;
+
     const sorted = defArr.filter(p=>p.playerRef).map(p=>{
       const d=dist(p.x,p.y, carrier.x,carrier.y);
       const roleW=ROLES[p.role].chaseWeight;
-      // Taktiksel mod: park'ta chaseWeight düşür, gegen'de yükselt
       let mod=1;
       if(tac===TACTICS['park']) mod*=0.7;
       if(tac===TACTICS['gegen']) mod*=1.2;
       return {p,score:(roleW*mod)/(d+1)};
     }).sort((a,b)=>b.score-a.score);
+
     const primary=sorted.slice(0,maxPrimary);
     primary.forEach(o=>o.p.ai.chase=true);
-    // Support shadow: sıradaki 1
+
     const support = sorted.slice(maxPrimary,maxPrimary+1);
     support.forEach(o=>o.p.ai.support=true);
+
     State.match.chaseState[carrierTeamHome?'away':'home']={primary:primary.map(o=>o.p),support:support.map(o=>o.p)};
   } else {
-    // Top serbest -> her iki taraftan sınırlı chaser
     const all=[...State.match.homeDynamic,...State.match.awayDynamic].filter(p=>p.playerRef);
     all.sort((a,b)=> dist(a.x,a.y,ball.x,ball.y)-dist(b.x,b.y,ball.x,ball.y));
-    // İlk 4 aday -> iki takım limitli
     let homeCount=0, awayCount=0, homeLimit=2, awayLimit=2;
     for(const p of all){
       const isHome = State.match.homeDynamic.includes(p);
@@ -552,65 +552,104 @@ function updateTacticalTargets(){
   const counterBoostHome = State.match.counterStateTimer>0 && homeTac===TACTICS['counter'];
   const counterBoostAway = State.match.counterStateTimer>0 && awayTac===TACTICS['counter'];
 
-  const applyShape = (arr, isAttacking, tac, counterBoost)=>{
+  const applyShape = (arr, isAttacking, tac, counterBoost, isHome)=>{
     for(const p of arr){
       if(!p.ai) continue;
-      // chaser ise hedef top (veya taşıyan)
+
       const b=State.match.ball;
       if(p.ai.chase){
         const targetX = b.carrier? b.carrier.x : b.x;
         const targetY = b.carrier? b.carrier.y : b.y;
-        p.tx = targetX + (Math.random()*14 -7);
-        p.ty = targetY + (Math.random()*14 -7);
+        p.tx = clamp(targetX + (Math.random()*(SIM_CFG.chaseTargetJitter*2) - SIM_CFG.chaseTargetJitter),20,canvas.width-20);
+        p.ty = clamp(targetY + (Math.random()*(SIM_CFG.chaseTargetJitter*2) - SIM_CFG.chaseTargetJitter),20,canvas.height-20);
         p.ai.targetTTL = 0.18 + Math.random()*0.15;
         continue;
       }
-      // support (yakın ama topa değil açılma)
+
       if(p.ai.support){
-        p.tx = p.x + (Math.random()*30 -15);
-        p.ty = p.y + (Math.random()*30 -15);
+        p.tx = clamp(p.x + (Math.random()*(SIM_CFG.supportTargetJitter*2)-SIM_CFG.supportTargetJitter),20,canvas.width-20);
+        p.ty = clamp(p.y + (Math.random()*(SIM_CFG.supportTargetJitter*2)-SIM_CFG.supportTargetJitter),20,canvas.height-20);
         p.ai.targetTTL = 0.25 + Math.random()*0.2;
         continue;
       }
 
-      const anchorX=p.fx; const anchorY=p.fy;
-      let advance = tac.lineHeight*120;
-      if(isAttacking){
-        advance += (p.role==='ST'?45: p.role==='AM'?30: p.role==='WG'?26: p.role==='DM'?14: p.role==='FB'?12:0);
-        if(counterBoost && ['ST','AM','WG'].includes(p.role)) advance += 30; // kontra ekstra ileri
-      } else {
-        advance -= (p.role==='CB'?32: p.role==='FB'?24: p.role==='DM'?20: 12);
-      }
+      const anchor = getRoleTacticalAnchor(p, tac, isAttacking, isHome);
+      let targetX = anchor.x;
+      let targetY = anchor.y;
 
-      // Roam
       const baseRoam = p.roamRadius;
       const roamRadius = baseRoam*(0.35 + tac.wingBias*0.25 + (counterBoost?0.3:0) - tac.passBias*0.15);
       const angle=Math.random()*Math.PI*2;
       const distRoam = Math.random()*roamRadius;
       let rx=Math.cos(angle)*distRoam;
       let ry=Math.sin(angle)*distRoam;
+
       if(p.role==='WG') rx *= (1 + tac.wingBias*0.5);
-      if(p.role==='CB') rx *= 0.5; // stoper daha sınırlı
+      if(p.role==='CB') rx *= 0.5;
 
-      let targetX = anchorX + advance + rx;
-      let targetY = anchorY + ry;
-      targetX = clamp(targetX,20,canvas.width-20);
-      targetY = clamp(targetY,20,canvas.height-20);
+      targetX += rx;
+      targetY += ry;
 
-      // Carrier ise jitter
       if(State.match.ball.carrier===p && !State.match.ball.target){
         targetX = clamp(p.x + (Math.random()*24 -12),20,canvas.width-20);
         targetY = clamp(p.y + (Math.random()*24 -12),20,canvas.height-20);
       }
 
-      p.tx=targetX; p.ty=targetY;
+      p.tx=clamp(lerp(p.tx,targetX,SIM_CFG.roleAnchorWeight),20,canvas.width-20);
+      p.ty=clamp(lerp(p.ty,targetY,SIM_CFG.roleAnchorWeight),20,canvas.height-20);
       p.ai.targetTTL = 0.35 + Math.random()*0.4;
     }
   };
 
   const attackingSide = State.match.possession;
-  applyShape(State.match.homeDynamic, attackingSide==='home', homeTac, counterBoostHome);
-  applyShape(State.match.awayDynamic, attackingSide==='away', awayTac, counterBoostAway);
+  applyShape(State.match.homeDynamic, attackingSide==='home', homeTac, counterBoostHome, true);
+  applyShape(State.match.awayDynamic, attackingSide==='away', awayTac, counterBoostAway, false);
+}
+
+function getRoleTacticalAnchor(p, tac, isAttacking, isHome){
+  let x=p.fx, y=p.fy;
+
+  // lineHeight ve defenseDepth
+  let advance = tac.lineHeight*120;
+  if(isAttacking){
+    advance += (p.role==='ST'?45: p.role==='AM'?30: p.role==='WG'?26: p.role==='DM'?14: p.role==='FB'?12:0);
+  } else {
+    advance -= (p.role==='CB'?36: p.role==='FB'?24: p.role==='DM'?22: 12);
+    advance -= tac.defenseDepth*16;
+  }
+
+  // Role doğal davranışları
+  if(p.role==='CB'){
+    if(isAttacking) advance -= 10;
+    else advance -= 18;
+  }
+  if(p.role==='DM'){
+    y = lerp(y, canvas.height/2, 0.35);
+    if(!isAttacking) advance -= 8;
+  }
+  if(p.role==='WG'){
+    // kanada açılma
+    const wingOpen = 28 + tac.wingBias*26;
+    if(y < canvas.height/2) y -= wingOpen*0.4;
+    else y += wingOpen*0.4;
+  }
+  if(p.role==='FB' && isAttacking && tac.wingBias>0.7){
+    advance += 10; // overlap
+  }
+
+  // Park the bus: geri blok
+  if(tac===TACTICS.park && ['CB','DM','FB'].includes(p.role)){
+    advance -= 18;
+  }
+
+  x += advance;
+  x = clamp(x, 20, canvas.width-20);
+  y = clamp(y, 20, canvas.height-20);
+
+  if(!isHome){
+    // away takımı için zaten fx/fy mirrored geldiği için ekstra ayna gerekmiyor
+  }
+  return {x,y};
 }
 
 // ------------------------ Pressing & Marking ------------------------
@@ -622,7 +661,6 @@ function updatePressingAndMarking(){
   const defTac = carrierTeamHome? TACTICS[State.opponent.tactic] : TACTICS[State.tactic];
 
   if(defTac.pressIntensity<0.25){
-    // Park / düşük pres -> marking daha derin
     for(const d of defArr){
       if(d.ai.chase) continue;
       const goalX = carrierTeamHome? canvas.width-8 : 8;
@@ -633,19 +671,16 @@ function updatePressingAndMarking(){
       d.ty = clamp(my,20,canvas.height-20);
     }
   } else {
-    // Yüksek pres: chase seçildi zaten; chase olmayanlar pas açılarını kapatır
     for(const d of defArr){
       if(d.ai.chase || d.ai.support) continue;
-      // Pas istasyonu olabilecek yakın arkadaşlara göre konumlan
       const carrierTeam = carrierTeamHome? State.match.homeDynamic : State.match.awayDynamic;
-      // En kısa iki potansiyel pas istasyonu
       const options = carrierTeam.filter(p=>p!==carrier && p.playerRef)
         .map(p=>({p,distance:dist(p.x,p.y,carrier.x,carrier.y)}))
         .sort((a,b)=>a.distance-b.distance).slice(0,2);
+
       if(options.length){
         const midX = options.reduce((acc,o)=>acc+o.p.x, carrier.x)/(options.length+1);
         const midY = options.reduce((acc,o)=>acc+o.p.y, carrier.y)/(options.length+1);
-        // Pas üçgeninin içine girip açı daralt
         d.tx = clamp(midX + (Math.random()*18 -9),20,canvas.width-20);
         d.ty = clamp(midY + (Math.random()*18 -9),20,canvas.height-20);
       }
@@ -658,27 +693,24 @@ function updateSupportArcs(){
   const ball=State.match.ball; const carrier=ball.carrier;
   if(!carrier) return;
   const teamArr = State.match.homeDynamic.includes(carrier)? State.match.homeDynamic : State.match.awayDynamic;
-  // Already chasing ones excluded
   const viable = teamArr.filter(p=>p!==carrier && p.playerRef && !p.ai.chase);
-  // Score by passing attribute & spacing
   const scored = viable.map(p=>{
     const d=dist(p.x,p.y, carrier.x,carrier.y);
-    const passAttr = p.playerRef.passing||50;
     const angleCarrierGoal = Math.atan2((canvas.height/2)-carrier.y,(canvas.width/2)-carrier.x);
     const angleCP = Math.atan2(p.y-carrier.y,p.x-carrier.x);
     const angleDiff=Math.abs(angleCarrierGoal-angleCP);
+    const passAttr = p.playerRef.passing||50;
     return {p,score:(passAttr/100)*1.0 + (1-angleDiff/Math.PI)*0.4 - (d<30?0.3:0)};
   }).sort((a,b)=>b.score-a.score).slice(0,2);
 
   for(const o of scored){
     o.p.ai.support=true;
-    // Support arc: carrier + goal yönünde hafif açı
     const dirX = (canvas.width/2 - carrier.x);
     const dirY = (canvas.height/2 - carrier.y);
     const baseLen = 60 + Math.random()*30;
-    const norm = Math.hypot(dirX,dirY)||1;
-    const arcX = carrier.x + (dirX/norm)*baseLen + (Math.random()*30 -15);
-    const arcY = carrier.y + (dirY/norm)*baseLen + (Math.random()*30 -15);
+    const n = Math.hypot(dirX,dirY)||1;
+    const arcX = carrier.x + (dirX/n)*baseLen + (Math.random()*30 -15);
+    const arcY = carrier.y + (dirY/n)*baseLen + (Math.random()*30 -15);
     o.p.tx = clamp(arcX,20,canvas.width-20);
     o.p.ty = clamp(arcY,20,canvas.height-20);
   }
@@ -702,14 +734,34 @@ function applySeparation(arr){
   }
 }
 
+// Rakipler de birbirinin içine girmesin
+function applyEnemySeparation(){
+  const all=[...State.match.homeDynamic,...State.match.awayDynamic].filter(p=>p.playerRef);
+  for(let i=0;i<all.length;i++){
+    for(let j=i+1;j<all.length;j++){
+      const a=all[i], b=all[j];
+      const sameTeam = (State.match.homeDynamic.includes(a) && State.match.homeDynamic.includes(b))
+                    || (State.match.awayDynamic.includes(a) && State.match.awayDynamic.includes(b));
+      if(sameTeam) continue;
+      const dx=a.x-b.x, dy=a.y-b.y;
+      const d=Math.hypot(dx,dy);
+      const minDist = Math.min(34, Math.max(26, (ROLES[a.role].spacing + ROLES[b.role].spacing)*0.38));
+      if(d<minDist && d>0){
+        const push=(minDist-d)*0.22;
+        a.x += (dx/d)*push; a.y += (dy/d)*push;
+        b.x -= (dx/d)*push; b.y -= (dy/d)*push;
+      }
+    }
+  }
+}
+
 function avoidBallCrowding(){
   const b=State.match.ball;
   const all=[...State.match.homeDynamic,...State.match.awayDynamic];
   const close=all.filter(p=>dist(p.x,p.y,b.x,b.y)<32);
   if(close.length>3){
     for(const p of close){
-      if(p.ai.chase) continue; // chaser kalabilir
-      // hafif geri/yan kaçış
+      if(p.ai.chase) continue;
       const dirAngle = Math.atan2(p.y-b.y,p.x-b.x)+ (Math.random()*Math.PI/3 - Math.PI/6);
       const escape=24;
       p.tx = clamp(p.x + Math.cos(dirAngle)*escape,20,canvas.width-20);
@@ -726,40 +778,64 @@ function decideEvents(){
   if(!State.match.ball.carrier) assignLooseBallCarrier();
   if(!State.match.ball.carrier) return;
 
+  const carrier=State.match.ball.carrier;
+  const action = chooseCarrierAction(attacker, carrier);
+  setText('#xgInfo', `Karar: ${actionLabel(action.type)} · Baskı:${underPressure(carrier,attacker)?'Evet':'Hayır'}`);
+  updateTacticLabels();
+
+  if(action.type==='shot') attemptShot(attacker, action.diff ?? 0);
+  else if(action.type==='pass') attemptSmartPass(attacker);
+  else if(action.type==='cross') attemptCross(attacker);
+  else if(action.type==='through') attemptThroughBall(attacker);
+  else if(action.type==='space_pass') attemptSpacePass(attacker);
+  else {
+    // carry/hold
+    carrier.tx = clamp(carrier.x + (attacker==='home'? 26 : -26),20,canvas.width-20);
+    carrier.ty = clamp(carrier.y + (Math.random()*22-11),20,canvas.height-20);
+  }
+}
+
+function chooseCarrierAction(attacker, carrier){
   const homeTac=TACTICS[State.tactic], awayTac=TACTICS[State.opponent.tactic];
   const tac=attacker==='home'? homeTac:awayTac;
   const oppTac=attacker==='home'? awayTac:homeTac;
   const {atk,def}=computeTeamsPower(attacker);
   const diff=atk-def;
   const minuteFactor=State.match.minute/State.match.maxMinute;
+  const pressure=underPressure(carrier,attacker);
 
-  let shotProb=clamp(0.09 + diff*0.0016 + minuteFactor*0.22 + tac.riskFactor*0.15,0.05,0.55);
-  shotProb *= (1 - oppTac.busFactor*0.35);
-  let passProb=clamp(tac.passBias*0.65 + (1 - shotProb)*0.45,0.28,0.8);
+  const progress=attacker==='home'? carrier.x/canvas.width : (canvas.width-carrier.x)/canvas.width;
+  const shotBase = 0.09 + diff*0.0016 + minuteFactor*0.22 + tac.riskFactor*0.15 + progress*0.08;
+  let shotProb = clamp(shotBase*(1 - oppTac.busFactor*0.35)*(pressure?0.72:1),0.05,0.6);
 
-  const pressure=underPressure(State.match.ball.carrier,attacker);
-  if(pressure){ shotProb*=0.75; passProb=clamp(passProb+0.18,0.28,0.9); }
+  let passProb = clamp(tac.passBias*0.65 + (1-shotProb)*0.45 + (pressure?0.14:0),0.28,0.82);
+  let crossProb = (tac.wingBias>0.75 && canAttemptCross(attacker)) ? 0.12 + tac.wingBias*0.15 : 0;
+  let throughProb = (tac.passBias>0.8) ? 0.10 : 0.04;
+  let spaceProb = (tac.counterTrigger>0.75) ? 0.14 : 0.05;
 
-  if(attacker==='home'&&State.match.counterStateTimer>0 && homeTac===TACTICS['counter']) shotProb=clamp(shotProb+0.12,0.05,0.65);
-  if(attacker==='away'&&State.match.counterStateTimer>0 && awayTac===TACTICS['counter']) shotProb=clamp(shotProb+0.12,0.05,0.65);
+  if(attacker==='home'&&State.match.counterStateTimer>0 && homeTac===TACTICS['counter']) shotProb=clamp(shotProb+0.10,0.05,0.7);
+  if(attacker==='away'&&State.match.counterStateTimer>0 && awayTac===TACTICS['counter']) shotProb=clamp(shotProb+0.10,0.05,0.7);
 
-  let action='hold'; const r=Math.random();
-  if(r<shotProb) action='shot';
-  else if(r<shotProb + passProb) action='pass';
-  else {
-    if(tac.wingBias>0.75 && canAttemptCross(attacker)) action='cross';
-    else if(tac.passBias>0.8 && Math.random()<0.5) action='through';
-    else if(tac.counterTrigger>0.75 && Math.random()<0.55) action='space_pass';
+  const total = shotProb + passProb + crossProb + throughProb + spaceProb + 0.15; // carry/hold
+  const r = Math.random()*total;
+  let c=0;
+  c+=shotProb; if(r<c) return {type:'shot', diff};
+  c+=passProb; if(r<c) return {type:'pass', diff};
+  c+=crossProb; if(r<c) return {type:'cross', diff};
+  c+=throughProb; if(r<c) return {type:'through', diff};
+  c+=spaceProb; if(r<c) return {type:'space_pass', diff};
+  return {type:'hold', diff};
+}
+
+function actionLabel(type){
+  switch(type){
+    case 'shot': return 'Şut';
+    case 'pass': return 'Pas';
+    case 'cross': return 'Orta';
+    case 'through': return 'Ara Pas';
+    case 'space_pass': return 'Boşluğa Top';
+    default: return 'Top Sürme';
   }
-
-  setText('#xgInfo', `Atak farkı: ${diff.toFixed(1)} · Baskı:${pressure?'Evet':'Hayır'}`);
-  updateTacticLabels();
-
-  if(action==='shot') attemptShot(attacker,diff);
-  else if(action==='pass') attemptSmartPass(attacker);
-  else if(action==='cross') attemptCross(attacker);
-  else if(action==='through') attemptThroughBall(attacker);
-  else if(action==='space_pass') attemptSpacePass(attacker);
 }
 
 function underPressure(carrier,team){
@@ -774,7 +850,6 @@ function assignLooseBallCarrier(){
   const all=[...State.match.homeDynamic,...State.match.awayDynamic].filter(p=>p.playerRef);
   all.sort((a,b)=>dist(a.x,a.y,ball.x,ball.y)-dist(b.x,b.y,ball.x,ball.y));
   const candidates=all.slice(0,5);
-  // Role öncelik + mesafe
   const priority=['AM','DM','ST','WG','FB','CB'];
   candidates.sort((a,b)=>priority.indexOf(a.role)-priority.indexOf(b.role));
   const chosen=candidates[0];
@@ -1062,7 +1137,7 @@ function applyStaminaDecay(arr,tac,stepSec){
   for(const p of arr){
     let dec=State.match.staminaDecayBase * tac.tempoFactor;
     dec += tac.pressIntensity * 0.18;
-    if(p.ai.chase) dec += 0.25; // chase maliyeti
+    if(p.ai.chase) dec += 0.25;
     if(State.match.ball.carrier && !arr.includes(State.match.ball.carrier)){
       const d=dist(p.x,p.y,State.match.ball.x,State.match.ball.y);
       if(d<130) dec += 0.06;
@@ -1074,6 +1149,7 @@ function applyStaminaDecay(arr,tac,stepSec){
 // ------------------------ Utils ------------------------
 function dist(x1,y1,x2,y2){ return Math.hypot(x1-x2,y1-y2); }
 function clamp(v,a,b){ return Math.max(a,Math.min(b,v)); }
+function lerp(a,b,t){ return a + (b-a)*t; }
 function shuffle(a){ for(let i=a.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [a[i],a[j]]=[a[j],a[i]];} return a;}
 function randn(){ return (Math.random()+Math.random()+Math.random()+Math.random()-2); }
 function pointLineDistance(px,py,x1,y1,x2,y2){
@@ -1155,4 +1231,4 @@ function drawBall(x,y){
 }
 
 // İlk çizim
-renderMatchFrame();
+render
