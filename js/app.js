@@ -62,6 +62,12 @@ const TACTICS = {
     chaseTightness:0.45, supportCompression:0.85 },
 };
 
+const SIM_CFG = {
+  chaseTargetJitter: 7,
+  supportTargetJitter: 15,
+  roleAnchorWeight: 0.14
+};
+
 // Global State
 const State = {
   players:[],
@@ -552,52 +558,67 @@ function updateTacticalTargets(){
   const counterBoostHome = State.match.counterStateTimer>0 && homeTac===TACTICS['counter'];
   const counterBoostAway = State.match.counterStateTimer>0 && awayTac===TACTICS['counter'];
 
+  const CFG = (typeof SIM_CFG !== 'undefined' && SIM_CFG) ? SIM_CFG : {
+    chaseTargetJitter: 7,
+    supportTargetJitter: 15,
+    roleAnchorWeight: 0.14
+  };
+
   const applyShape = (arr, isAttacking, tac, counterBoost, isHome)=>{
     for(const p of arr){
       if(!p.ai) continue;
 
+      p.ai.targetTTL = (p.ai.targetTTL||0) - (State.match.logicStep/1000);
+      const needNewTarget = p.ai.targetTTL <= 0;
+
       const b=State.match.ball;
+
       if(p.ai.chase){
-        const targetX = b.carrier? b.carrier.x : b.x;
-        const targetY = b.carrier? b.carrier.y : b.y;
-        p.tx = clamp(targetX + (Math.random()*(SIM_CFG.chaseTargetJitter*2) - SIM_CFG.chaseTargetJitter),20,canvas.width-20);
-        p.ty = clamp(targetY + (Math.random()*(SIM_CFG.chaseTargetJitter*2) - SIM_CFG.chaseTargetJitter),20,canvas.height-20);
-        p.ai.targetTTL = 0.18 + Math.random()*0.15;
+        if(needNewTarget){
+          const targetX = b.carrier? b.carrier.x : b.x;
+          const targetY = b.carrier? b.carrier.y : b.y;
+          p.tx = clamp(targetX + (Math.random()*(CFG.chaseTargetJitter*2) - CFG.chaseTargetJitter),20,canvas.width-20);
+          p.ty = clamp(targetY + (Math.random()*(CFG.chaseTargetJitter*2) - CFG.chaseTargetJitter),20,canvas.height-20);
+          p.ai.targetTTL = 0.14 + Math.random()*0.12;
+        }
         continue;
       }
 
       if(p.ai.support){
-        p.tx = clamp(p.x + (Math.random()*(SIM_CFG.supportTargetJitter*2)-SIM_CFG.supportTargetJitter),20,canvas.width-20);
-        p.ty = clamp(p.y + (Math.random()*(SIM_CFG.supportTargetJitter*2)-SIM_CFG.supportTargetJitter),20,canvas.height-20);
-        p.ai.targetTTL = 0.25 + Math.random()*0.2;
+        if(needNewTarget){
+          p.tx = clamp(p.x + (Math.random()*(CFG.supportTargetJitter*2)-CFG.supportTargetJitter),20,canvas.width-20);
+          p.ty = clamp(p.y + (Math.random()*(CFG.supportTargetJitter*2)-CFG.supportTargetJitter),20,canvas.height-20);
+          p.ai.targetTTL = 0.22 + Math.random()*0.18;
+        }
         continue;
       }
 
-      const anchor = getRoleTacticalAnchor(p, tac, isAttacking, isHome);
-      let targetX = anchor.x;
-      let targetY = anchor.y;
+      if(needNewTarget){
+        const anchor = getRoleTacticalAnchor(p, tac, isAttacking, isHome);
 
-      const baseRoam = p.roamRadius;
-      const roamRadius = baseRoam*(0.35 + tac.wingBias*0.25 + (counterBoost?0.3:0) - tac.passBias*0.15);
-      const angle=Math.random()*Math.PI*2;
-      const distRoam = Math.random()*roamRadius;
-      let rx=Math.cos(angle)*distRoam;
-      let ry=Math.sin(angle)*distRoam;
+        const baseRoam = p.roamRadius;
+        const roamRadius = baseRoam*(0.40 + tac.wingBias*0.30 + (counterBoost?0.25:0) - tac.passBias*0.10);
+        const angle=Math.random()*Math.PI*2;
+        const distRoam = Math.random()*roamRadius;
+        let rx=Math.cos(angle)*distRoam;
+        let ry=Math.sin(angle)*distRoam;
 
-      if(p.role==='WG') rx *= (1 + tac.wingBias*0.5);
-      if(p.role==='CB') rx *= 0.5;
+        if(p.role==='WG') rx *= (1 + tac.wingBias*0.45);
+        if(p.role==='CB') rx *= 0.55;
 
-      targetX += rx;
-      targetY += ry;
+        let targetX = anchor.x + rx;
+        let targetY = anchor.y + ry;
 
-      if(State.match.ball.carrier===p && !State.match.ball.target){
-        targetX = clamp(p.x + (Math.random()*24 -12),20,canvas.width-20);
-        targetY = clamp(p.y + (Math.random()*24 -12),20,canvas.height-20);
+        if(State.match.ball.carrier===p && !State.match.ball.target){
+          const dir = State.match.homeDynamic.includes(p) ? 1 : -1;
+          targetX = p.x + dir*(18 + Math.random()*16);
+          targetY = p.y + (Math.random()*20 -10);
+        }
+
+        p.tx = clamp(targetX, 20, canvas.width-20);
+        p.ty = clamp(targetY, 20, canvas.height-20);
+        p.ai.targetTTL = 0.30 + Math.random()*0.35;
       }
-
-      p.tx=clamp(lerp(p.tx,targetX,SIM_CFG.roleAnchorWeight),20,canvas.width-20);
-      p.ty=clamp(lerp(p.ty,targetY,SIM_CFG.roleAnchorWeight),20,canvas.height-20);
-      p.ai.targetTTL = 0.35 + Math.random()*0.4;
     }
   };
 
@@ -1231,4 +1252,4 @@ function drawBall(x,y){
 }
 
 // İlk çizim
-render
+renderMatchFrame();
